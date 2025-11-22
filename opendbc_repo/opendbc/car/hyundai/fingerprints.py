@@ -1266,4 +1266,12 @@ FW_VERSIONS = {
       b'\xf1\x00T01G00BL  T01I00A1  DOS2T16X4XI00NS0\x99L\xeeq',
     ],
   },
+  CAR.KIA_EV4: {
+    (Ecu.fwdRadar, 0x7d0, None): [
+      b'\xf1\x00CT1__               1.00 1.01 99110EZ000          ',
+    ],
+    (Ecu.fwdCamera, 0x7c4, None): [
+      b'\xf1\x00CT11.011.031.012551000HKP_CT125_50430099211EZ000'
+    ],
+  },
 }

@@ -596,7 +596,13 @@ class CAR(Platforms):
     CarSpecs(mass=2258, wheelbase=2.95, steerRatio=14.14),
     flags=HyundaiFlags.RADAR_SCC,
   )
-
+  KIA_EV4 = HyundaiCanFDPlatformConfig(
+    [
+      HyundaiCarDocs("Kia EV4 (with HDA II) 2026", "Highway Driving Assist II", car_parts=CarParts.common([CarHarness.hyundai_p]))
+    ],
+    CarSpecs(mass=1850, wheelbase=2.68, steerRatio=16, tireStiffnessFactor=0.65),
+    flags=HyundaiFlags.EV,
+  )
 
 class Buttons:
   NONE = 0

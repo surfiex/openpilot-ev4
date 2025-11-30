@@ -30,11 +30,17 @@ class CarState(CarStateBase):
     self.main_buttons: deque = deque([Buttons.NONE] * PREV_BUTTON_SAMPLES, maxlen=PREV_BUTTON_SAMPLES)
     self.lda_button = 0
 
-    self.gear_msg_canfd = "ACCELERATOR_BRAKE_ALT" if CP.carFingerprint == CAR.KIA_EV4 else \
-                          "ACCELERATOR" if CP.flags & HyundaiFlags.EV else \
-                          "GEAR_ALT" if CP.flags & HyundaiFlags.CANFD_ALT_GEARS else \
-                          "GEAR_ALT_2" if CP.flags & HyundaiFlags.CANFD_ALT_GEARS_2 else \
-                          "GEAR_SHIFTER"
+    if CP.carFingerprint == CAR.KIA_EV4:
+      self.gear_msg_canfd = "GEAR_SHIFTER"
+      self.accelerator_msg_canfd = "ACCELERATOR_BRAKE_ALT"
+    else:
+      self.gear_msg_canfd = "ACCELERATOR" if CP.flags & HyundaiFlags.EV else \
+        "ACCELERATOR_ALT" if CP.flags & HyundaiFlags.HYBRID else \
+        "GEAR_SHIFTER"
+
+      self.accelerator_msg_canfd = "ACCELERATOR" if CP.flags & HyundaiFlags.EV else \
+        "ACCELERATOR_ALT" if CP.flags & HyundaiFlags.HYBRID else \
+        "ACCELERATOR_BRAKE_ALT"
 
     if CP.flags & HyundaiFlags.CANFD:
       self.shifter_values = can_define.dv[self.gear_msg_canfd]["GEAR"]

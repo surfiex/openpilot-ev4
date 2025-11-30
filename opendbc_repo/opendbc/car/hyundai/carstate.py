@@ -30,10 +30,12 @@ class CarState(CarStateBase):
     self.main_buttons: deque = deque([Buttons.NONE] * PREV_BUTTON_SAMPLES, maxlen=PREV_BUTTON_SAMPLES)
     self.lda_button = 0
 
-    self.gear_msg_canfd = "ACCELERATOR" if CP.flags & HyundaiFlags.EV else \
+    self.gear_msg_canfd = "ACCELERATOR_BRAKE_ALT" if CP.carFingerprint == CAR.KIA_EV4 else \
+                          "ACCELERATOR" if CP.flags & HyundaiFlags.EV else \
                           "GEAR_ALT" if CP.flags & HyundaiFlags.CANFD_ALT_GEARS else \
                           "GEAR_ALT_2" if CP.flags & HyundaiFlags.CANFD_ALT_GEARS_2 else \
                           "GEAR_SHIFTER"
+
     if CP.flags & HyundaiFlags.CANFD:
       self.shifter_values = can_define.dv[self.gear_msg_canfd]["GEAR"]
     elif CP.flags & (HyundaiFlags.HYBRID | HyundaiFlags.EV):
@@ -47,7 +49,8 @@ class CarState(CarStateBase):
     else:
       self.shifter_values = can_define.dv["LVR12"]["CF_Lvr_Gear"]
 
-    self.accelerator_msg_canfd = "ACCELERATOR" if CP.flags & HyundaiFlags.EV else \
+    self.accelerator_msg_canfd = "ACCELERATOR_BRAKE_ALT" if CP.carFingerprint == CAR.KIA_EV4 else \
+                                 "ACCELERATOR" if CP.flags & HyundaiFlags.EV else \
                                  "ACCELERATOR_ALT" if CP.flags & HyundaiFlags.HYBRID else \
                                  "ACCELERATOR_BRAKE_ALT"
     self.cruise_btns_msg_canfd = "CRUISE_BUTTONS_ALT" if CP.flags & HyundaiFlags.CANFD_ALT_BUTTONS else \
@@ -272,7 +275,9 @@ class CarState(CarStateBase):
     # The car will brake, but does not respect positive acceleration commands in this mode
     # TODO: find this message on ICE & HYBRID cars + cruise control signals (if exists)
     if self.CP.flags & HyundaiFlags.EV:
-      ret.cruiseState.nonAdaptive = cp.vl["MANUAL_SPEED_LIMIT_ASSIST"]["MSLA_ENABLED"] == 1
+      # EV4는 MANUAL_SPEED_LIMIT_ASSIST 메시지 없음
+      if self.CP.carFingerprint != CAR.KIA_EV4:
+        ret.cruiseState.nonAdaptive = cp.vl["MANUAL_SPEED_LIMIT_ASSIST"]["MSLA_ENABLED"] == 1
 
     prev_cruise_buttons = self.cruise_buttons[-1]
     prev_main_buttons = self.main_buttons[-1]

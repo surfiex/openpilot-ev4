@@ -602,6 +602,7 @@ class CAR(Platforms):
     ],
     CarSpecs(mass=1850, wheelbase=2.68, steerRatio=16, tireStiffnessFactor=0.65),
     #flags=HyundaiFlags.EV,
+    dbc_dict={Bus.pt: "hyundai_canfd_ev4"},
   )
 
 class Buttons:

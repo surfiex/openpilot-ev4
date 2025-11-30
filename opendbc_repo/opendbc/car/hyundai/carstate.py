@@ -30,17 +30,43 @@ class CarState(CarStateBase):
     self.main_buttons: deque = deque([Buttons.NONE] * PREV_BUTTON_SAMPLES, maxlen=PREV_BUTTON_SAMPLES)
     self.lda_button = 0
 
+    # EV4 전용 메시지 매핑
     if CP.carFingerprint == CAR.KIA_EV4:
       self.gear_msg_canfd = "GEAR_SHIFTER"
       self.accelerator_msg_canfd = "ACCELERATOR_BRAKE_ALT"
+      # CANFD 메시지 변수 (EV4 전용)
+      self.wheel_speeds_msg = "WHEEL_SPEEDS"
+      self.steering_sensors_msg = "STEERING_SENSORS"
+      self.mdps_msg = "MDPS"
+      self.tcs_msg = "TCS"
+      self.esp_status_msg = "ESP_STATUS"
+      self.brake_msg = "BRAKE"
+      self.doors_seatbelts_msg = "DOORS_SEATBELTS"
+      self.blinkers_msg = "BLINKERS"
+      self.blinker_stalks_msg = "BLINKER_STALKS"
+      self.cluster_info_msg = "CLUSTER_INFO"
+      self.cruise_control_msg = "SCC_CONTROL"
     else:
       self.gear_msg_canfd = "ACCELERATOR" if CP.flags & HyundaiFlags.EV else \
         "ACCELERATOR_ALT" if CP.flags & HyundaiFlags.HYBRID else \
-        "GEAR_SHIFTER"
+          "GEAR_SHIFTER"
 
       self.accelerator_msg_canfd = "ACCELERATOR" if CP.flags & HyundaiFlags.EV else \
         "ACCELERATOR_ALT" if CP.flags & HyundaiFlags.HYBRID else \
-        "ACCELERATOR_BRAKE_ALT"
+          "ACCELERATOR_BRAKE_ALT"
+
+      # 기존 차량 메시지 변수
+      self.wheel_speeds_msg = "WHEEL_SPEEDS"
+      self.steering_sensors_msg = "STEERING_SENSORS"
+      self.mdps_msg = "MDPS"
+      self.tcs_msg = "TCS"
+      self.esp_status_msg = "ESP_STATUS"
+      self.brake_msg = "BRAKE"
+      self.doors_seatbelts_msg = "DOORS_SEATBELTS"
+      self.blinkers_msg = "BLINKERS"
+      self.blinker_stalks_msg = "BLINKER_STALKS"
+      self.cluster_info_msg = "CLUSTER_INFO"
+      self.cruise_control_msg = "SCC_CONTROL"
 
     if CP.flags & HyundaiFlags.CANFD:
       self.shifter_values = can_define.dv[self.gear_msg_canfd]["GEAR"]
@@ -56,11 +82,11 @@ class CarState(CarStateBase):
       self.shifter_values = can_define.dv["LVR12"]["CF_Lvr_Gear"]
 
     self.accelerator_msg_canfd = "ACCELERATOR_BRAKE_ALT" if CP.carFingerprint == CAR.KIA_EV4 else \
-                                 "ACCELERATOR" if CP.flags & HyundaiFlags.EV else \
-                                 "ACCELERATOR_ALT" if CP.flags & HyundaiFlags.HYBRID else \
-                                 "ACCELERATOR_BRAKE_ALT"
+      "ACCELERATOR" if CP.flags & HyundaiFlags.EV else \
+        "ACCELERATOR_ALT" if CP.flags & HyundaiFlags.HYBRID else \
+          "ACCELERATOR_BRAKE_ALT"
     self.cruise_btns_msg_canfd = "CRUISE_BUTTONS_ALT" if CP.flags & HyundaiFlags.CANFD_ALT_BUTTONS else \
-                                 "CRUISE_BUTTONS"
+      "CRUISE_BUTTONS"
     self.is_metric = False
     self.buttons_counter = 0
 
@@ -96,12 +122,13 @@ class CarState(CarStateBase):
     ret.seatbeltUnlatched = cp.vl["CGW1"]["CF_Gway_DrvSeatBeltSw"] == 0
 
     self.parse_wheel_speeds(ret,
-      cp.vl["WHL_SPD11"]["WHL_SPD_FL"],
-      cp.vl["WHL_SPD11"]["WHL_SPD_FR"],
-      cp.vl["WHL_SPD11"]["WHL_SPD_RL"],
-      cp.vl["WHL_SPD11"]["WHL_SPD_RR"],
-    )
-    ret.standstill = cp.vl["WHL_SPD11"]["WHL_SPD_FL"] <= STANDSTILL_THRESHOLD and cp.vl["WHL_SPD11"]["WHL_SPD_RR"] <= STANDSTILL_THRESHOLD
+                            cp.vl["WHL_SPD11"]["WHL_SPD_FL"],
+                            cp.vl["WHL_SPD11"]["WHL_SPD_FR"],
+                            cp.vl["WHL_SPD11"]["WHL_SPD_RL"],
+                            cp.vl["WHL_SPD11"]["WHL_SPD_RR"],
+                            )
+    ret.standstill = cp.vl["WHL_SPD11"]["WHL_SPD_FL"] <= STANDSTILL_THRESHOLD and cp.vl["WHL_SPD11"][
+      "WHL_SPD_RR"] <= STANDSTILL_THRESHOLD
 
     self.cluster_speed_counter += 1
     if self.cluster_speed_counter > CLUSTER_SAMPLE_RATE:
@@ -227,54 +254,56 @@ class CarState(CarStateBase):
     else:
       ret.gasPressed = bool(cp.vl[self.accelerator_msg_canfd]["ACCELERATOR_PEDAL_PRESSED"])
 
-    ret.brakePressed = cp.vl["TCS"]["DriverBraking"] == 1
+    ret.brakePressed = cp.vl[self.tcs_msg]["DriverBraking"] == 1
 
-    ret.doorOpen = cp.vl["DOORS_SEATBELTS"]["DRIVER_DOOR"] == 1
-    ret.seatbeltUnlatched = cp.vl["DOORS_SEATBELTS"]["DRIVER_SEATBELT"] == 0
+    ret.doorOpen = cp.vl[self.doors_seatbelts_msg]["DRIVER_DOOR"] == 1
+    ret.seatbeltUnlatched = cp.vl[self.doors_seatbelts_msg]["DRIVER_SEATBELT"] == 0
 
     gear = cp.vl[self.gear_msg_canfd]["GEAR"]
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(gear))
 
     # TODO: figure out positions
     self.parse_wheel_speeds(ret,
-      cp.vl["WHEEL_SPEEDS"]["WHL_SpdFLVal"],
-      cp.vl["WHEEL_SPEEDS"]["WHL_SpdFRVal"],
-      cp.vl["WHEEL_SPEEDS"]["WHL_SpdRLVal"],
-      cp.vl["WHEEL_SPEEDS"]["WHL_SpdRRVal"],
-    )
-    ret.standstill = cp.vl["WHEEL_SPEEDS"]["WHL_SpdFLVal"] <= STANDSTILL_THRESHOLD and cp.vl["WHEEL_SPEEDS"]["WHL_SpdFRVal"] <= STANDSTILL_THRESHOLD and \
-                     cp.vl["WHEEL_SPEEDS"]["WHL_SpdRLVal"] <= STANDSTILL_THRESHOLD and cp.vl["WHEEL_SPEEDS"]["WHL_SpdRRVal"] <= STANDSTILL_THRESHOLD
+                            cp.vl[self.wheel_speeds_msg]["WHL_SpdFLVal"],
+                            cp.vl[self.wheel_speeds_msg]["WHL_SpdFRVal"],
+                            cp.vl[self.wheel_speeds_msg]["WHL_SpdRLVal"],
+                            cp.vl[self.wheel_speeds_msg]["WHL_SpdRRVal"],
+                            )
+    ret.standstill = cp.vl[self.wheel_speeds_msg]["WHL_SpdFLVal"] <= STANDSTILL_THRESHOLD and \
+                     cp.vl[self.wheel_speeds_msg]["WHL_SpdFRVal"] <= STANDSTILL_THRESHOLD and \
+                     cp.vl[self.wheel_speeds_msg]["WHL_SpdRLVal"] <= STANDSTILL_THRESHOLD and \
+                     cp.vl[self.wheel_speeds_msg]["WHL_SpdRRVal"] <= STANDSTILL_THRESHOLD
 
-    ret.steeringRateDeg = cp.vl["STEERING_SENSORS"]["STEERING_RATE"]
-    ret.steeringAngleDeg = cp.vl["STEERING_SENSORS"]["STEERING_ANGLE"]
-    ret.steeringTorque = cp.vl["MDPS"]["STEERING_COL_TORQUE"]
-    ret.steeringTorqueEps = cp.vl["MDPS"]["STEERING_OUT_TORQUE"]
+    ret.steeringRateDeg = cp.vl[self.steering_sensors_msg]["STEERING_RATE"]
+    ret.steeringAngleDeg = cp.vl[self.steering_sensors_msg]["STEERING_ANGLE"]
+    ret.steeringTorque = cp.vl[self.mdps_msg]["STEERING_COL_TORQUE"]
+    ret.steeringTorqueEps = cp.vl[self.mdps_msg]["STEERING_OUT_TORQUE"]
     ret.steeringPressed = self.update_steering_pressed(abs(ret.steeringTorque) > self.params.STEER_THRESHOLD, 5)
-    ret.steerFaultTemporary = cp.vl["MDPS"]["LKA_FAULT"] != 0
+    ret.steerFaultTemporary = cp.vl[self.mdps_msg]["LKA_FAULT"] != 0
 
     # TODO: alt signal usage may be described by cp.vl['BLINKERS']['USE_ALT_LAMP']
     left_blinker_sig, right_blinker_sig = "LEFT_LAMP", "RIGHT_LAMP"
     if self.CP.carFingerprint == CAR.HYUNDAI_KONA_EV_2ND_GEN:
       left_blinker_sig, right_blinker_sig = "LEFT_LAMP_ALT", "RIGHT_LAMP_ALT"
-    ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_lamp(50, cp.vl["BLINKERS"][left_blinker_sig],
-                                                                      cp.vl["BLINKERS"][right_blinker_sig])
+    ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_lamp(50, cp.vl[self.blinkers_msg][left_blinker_sig],
+                                                                      cp.vl[self.blinkers_msg][right_blinker_sig])
     if self.CP.enableBsm:
       ret.leftBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"]["FL_INDICATOR"] != 0
       ret.rightBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"]["FR_INDICATOR"] != 0
 
     # cruise state
     # CAN FD cars enable on main button press, set available if no TCS faults preventing engagement
-    ret.cruiseState.available = cp.vl["TCS"]["ACCEnable"] == 0
+    ret.cruiseState.available = cp.vl[self.tcs_msg]["ACCEnable"] == 0
     if self.CP.openpilotLongitudinalControl:
       # These are not used for engage/disengage since openpilot keeps track of state using the buttons
-      ret.cruiseState.enabled = cp.vl["TCS"]["ACC_REQ"] == 1
+      ret.cruiseState.enabled = cp.vl[self.tcs_msg]["ACC_REQ"] == 1
       ret.cruiseState.standstill = False
     else:
       cp_cruise_info = cp_cam if self.CP.flags & HyundaiFlags.CANFD_CAMERA_SCC else cp
-      ret.cruiseState.enabled = cp_cruise_info.vl["SCC_CONTROL"]["ACCMode"] in (1, 2)
-      ret.cruiseState.standstill = cp_cruise_info.vl["SCC_CONTROL"]["CRUISE_STANDSTILL"] == 1
-      ret.cruiseState.speed = cp_cruise_info.vl["SCC_CONTROL"]["VSetDis"] * speed_factor
-      self.cruise_info = copy.copy(cp_cruise_info.vl["SCC_CONTROL"])
+      ret.cruiseState.enabled = cp_cruise_info.vl[self.cruise_control_msg]["ACCMode"] in (1, 2)
+      ret.cruiseState.standstill = cp_cruise_info.vl[self.cruise_control_msg]["CRUISE_STANDSTILL"] == 1
+      ret.cruiseState.speed = cp_cruise_info.vl[self.cruise_control_msg]["VSetDis"] * speed_factor
+      self.cruise_info = copy.copy(cp_cruise_info.vl[self.cruise_control_msg])
 
     # Manual Speed Limit Assist is a feature that replaces non-adaptive cruise control on EV CAN FD platforms.
     # It limits the vehicle speed, overridable by pressing the accelerator past a certain point.
@@ -284,7 +313,7 @@ class CarState(CarStateBase):
       try:
         ret.cruiseState.nonAdaptive = cp.vl["MANUAL_SPEED_LIMIT_ASSIST"]["MSLA_ENABLED"] == 1
       except KeyError:
-        pass
+        pass  # EV4는 MSLA 메시지 없음
 
     prev_cruise_buttons = self.cruise_buttons[-1]
     prev_main_buttons = self.main_buttons[-1]
@@ -293,11 +322,11 @@ class CarState(CarStateBase):
     self.main_buttons.extend(cp.vl_all[self.cruise_btns_msg_canfd]["ADAPTIVE_CRUISE_MAIN_BTN"])
     self.lda_button = cp.vl[self.cruise_btns_msg_canfd]["LDA_BTN"]
     self.buttons_counter = cp.vl[self.cruise_btns_msg_canfd]["COUNTER"]
-    ret.accFaulted = cp.vl["TCS"]["ACCEnable"] != 0  # 0 ACC CONTROL ENABLED, 1-3 ACC CONTROL DISABLED
+    ret.accFaulted = cp.vl[self.tcs_msg]["ACCEnable"] != 0  # 0 ACC CONTROL ENABLED, 1-3 ACC CONTROL DISABLED
 
     if self.CP.flags & HyundaiFlags.CANFD_LKA_STEERING:
       self.lfa_block_msg = copy.copy(cp_cam.vl["CAM_0x362"] if self.CP.flags & HyundaiFlags.CANFD_LKA_STEERING_ALT
-                                          else cp_cam.vl["CAM_0x2a4"])
+                                     else cp_cam.vl["CAM_0x2a4"])
 
     ret.buttonEvents = [*create_button_events(self.cruise_buttons[-1], prev_cruise_buttons, BUTTONS_DICT),
                         *create_button_events(self.main_buttons[-1], prev_main_buttons, {1: ButtonType.mainCruise}),

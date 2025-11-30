@@ -281,9 +281,10 @@ class CarState(CarStateBase):
     # The car will brake, but does not respect positive acceleration commands in this mode
     # TODO: find this message on ICE & HYBRID cars + cruise control signals (if exists)
     if self.CP.flags & HyundaiFlags.EV:
-      # EV4는 MANUAL_SPEED_LIMIT_ASSIST 메시지 없음
-      if self.CP.carFingerprint != CAR.KIA_EV4:
+      try:
         ret.cruiseState.nonAdaptive = cp.vl["MANUAL_SPEED_LIMIT_ASSIST"]["MSLA_ENABLED"] == 1
+      except KeyError:
+        pass
 
     prev_cruise_buttons = self.cruise_buttons[-1]
     prev_main_buttons = self.main_buttons[-1]

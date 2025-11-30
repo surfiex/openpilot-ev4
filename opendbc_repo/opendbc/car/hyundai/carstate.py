@@ -249,12 +249,16 @@ class CarState(CarStateBase):
     self.is_metric = cp.vl["CRUISE_BUTTONS_ALT"]["DISTANCE_UNIT"] != 1
     speed_factor = CV.KPH_TO_MS if self.is_metric else CV.MPH_TO_MS
 
-    if self.CP.flags & (HyundaiFlags.EV | HyundaiFlags.HYBRID):
-      ret.gasPressed = cp.vl[self.accelerator_msg_canfd]["ACCELERATOR_PEDAL"] > 1e-5
-    else:
+    # EV4는 ACCELERATOR_BRAKE_ALT 메시지 사용
+    if self.CP.carFingerprint == CAR.KIA_EV4:
       ret.gasPressed = bool(cp.vl[self.accelerator_msg_canfd]["ACCELERATOR_PEDAL_PRESSED"])
-
-    ret.brakePressed = cp.vl[self.tcs_msg]["DriverBraking"] == 1
+      ret.brakePressed = cp.vl[self.accelerator_msg_canfd]["BRAKE_PRESSED"] == 1
+    else:
+      if self.CP.flags & (HyundaiFlags.EV | HyundaiFlags.HYBRID):
+        ret.gasPressed = cp.vl[self.accelerator_msg_canfd]["ACCELERATOR_PEDAL"] > 1e-5
+      else:
+        ret.gasPressed = bool(cp.vl[self.accelerator_msg_canfd]["ACCELERATOR_PEDAL_PRESSED"])
+      ret.brakePressed = cp.vl[self.tcs_msg]["DriverBraking"] == 1
 
     ret.doorOpen = cp.vl[self.doors_seatbelts_msg]["DRIVER_DOOR"] == 1
     ret.seatbeltUnlatched = cp.vl[self.doors_seatbelts_msg]["DRIVER_SEATBELT"] == 0
@@ -338,12 +342,28 @@ class CarState(CarStateBase):
 
   def get_can_parsers_canfd(self, CP):
     msgs = []
-    if not (CP.flags & HyundaiFlags.CANFD_ALT_BUTTONS):
-      # TODO: this can be removed once we add dynamic support to vl_all
-      msgs += [
-        # this message is 50Hz but the ECU frequently stops transmitting for ~0.5s
-        ("CRUISE_BUTTONS", 1)
+
+    # EV4 전용 메시지 구독
+    if CP.carFingerprint == CAR.KIA_EV4:
+      msgs = [
+        ("WHEEL_SPEEDS", 50),
+        ("STEERING_SENSORS", 100),
+        ("MDPS", 100),
+        ("TCS", 50),
+        ("ACCELERATOR_BRAKE_ALT", 50),
+        ("GEAR_SHIFTER", 100),
+        ("DOORS_SEATBELTS", 10),
+        ("BLINKERS", 10),
+        ("CRUISE_BUTTONS_ALT", 50),
       ]
+    else:
+      if not (CP.flags & HyundaiFlags.CANFD_ALT_BUTTONS):
+        # TODO: this can be removed once we add dynamic support to vl_all
+        msgs += [
+          # this message is 50Hz but the ECU frequently stops transmitting for ~0.5s
+          ("CRUISE_BUTTONS", 1)
+        ]
+
     return {
       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], msgs, CanBus(CP).ECAN),
       Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], [], CanBus(CP).CAM),
